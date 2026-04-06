@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 TFT Painter</title>
+  <style>
+    body {font-family: Arial; margin: 0; padding: 10px; background: #f0f0f0;}
+    .container {max-width: 400px; margin: auto; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
+    h1 {text-align: center; font-size: 1.5em; margin: 0 0 15px;}
+    .form-group {margin: 12px 0;}
+    label {display: block; margin: 5px 0;}
+    select, button {width: 100%; padding: 10px; margin: 5px 0; font-size: 16px; box-sizing: border-box;}
+    button {background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 5px;}
+    button:hover {background: #45a049;}
+    #clearBtn {background: #f44336;}
+    #clearBtn:hover {background: #da190b;}
+    #starsBtn {background: #2196F3;}
+    #starsBtn:hover {background: #0b7dda;}
+    .canvas-area {margin: 15px 0; text-align: center;}
+    #preview {border: 2px solid #333; background: #000; touch-action: none; display: block; margin: 10px auto;}
+    .coords {font-family: monospace; background: #eee; padding: 8px; border-radius: 5px; margin: 10px 0;}
+    .status {text-align: center; font-size: 0.9em; margin: 10px 0;}
+    
+    /* Стили для цветовых кнопок */
+    .color-buttons-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .color-button {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      border: 2px solid #ddd;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .color-button:hover {
+      transform: scale(1.08);
+      border-color: #888;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    }
+    .color-button.active {
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #333, 0 0 8px rgba(255,255,255,0.8);
+      transform: scale(1.05);
+    }
+    .color-label {
+      font-size: 0.75em;
+      text-align: center;
+      margin-top: 4px;
+      color: #555;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .color-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ESP32 TFT Painter</h1>
+
+    <div class="form-group">
+      <label>Фигура:</label>
+      <select id="shape">
+        <option value="line">Линия</option>
+        <option value="rect">Прямоугольник</option>
+        <option value="fillrect">Закр. прямоуг.</option>
+        <option value="circle">Круг</option>
+        <option value="fillcircle">Закр. круг</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Цвет:</label>
+      <div class="color-buttons-container" id="color-buttons-container">
+        <!-- Цветовые кнопки будут сгенерированы скриптом -->
+      </div>
+      <select id="color" style="display:none;">
+        <option value="0xFFFF">Белый</option>
+        <option value="0x0000">Чёрный</option>
+        <option value="0xF800">Красный</option>
+        <option value="0x07E0">Зелёный</option>
+        <option value="0x001F">Синий</option>
+        <option value="0xFFE0">Жёлтый</option>
+        <option value="0xF81F">Розовый</option>
+        <option value="0x7FFF">Голубой</option>
+        <option value="0x7BE0">Мятный</option>
+        <option value="0xF81F">Малиновый</option>
+        <option value="0xFD20">Оранжевый</option>
+        <option value="0xAFE5">Светло-зелёный</option>
+        <option value="0xA254">Фиолетовый</option>
+        <option value="0x051F">Тёмно-синий</option>
+        <option value="0x7C1F">Коричневый</option>
+        <option value="0xC618">Серый</option>
+        <option value="0x8410">Тёмно-серый</option>
+        <option value="0x4208">Коричневый тёмный</option>
+        <option value="0xFBCF">Светло-розовый</option>
+        <option value="0x07FF">Бирюзовый</option>
+        <option value="0xF800">Красный яркий</option>
+        <option value="0xFFE0">Жёлтый яркий</option>
+        <option value="0x001F">Синий яркий</option>
+        <option value="0x07E0">Зелёный яркий</option>
+      </select>
+    </div>
+
+    <div class="canvas-area">
+      <div>Кликните для выбора точек</div>
+      <canvas id="preview" width="240" height="320"></canvas>
+      <div class="coords" id="coords">X1: ?, Y1: ? → X2: ?, Y2: ?</div>
+    </div>    
+
+    <button onclick="draw()">Рисовать</button>
+    <button id="clearBtn" onclick="clearScreen()">Очистить экран</button>
+    <button id="starsBtn" onclick="drawStars()">Звёздное небо</button>
+
+    <div class="form-group">
+      <label>URL слайдшоу:</label>
+      <input type="text" id="slideshowUrl" value="http://192.168.0.70:8083/next-image/" style="width:95%; font-size:14px;">
+    </div>
+
+    <button id="slideshowBtn" onclick="toggleSlideshow()">Запустить слайдшоу</button>
+    <button id="sensorBtn" onclick="toggleSensor()">Запустить мониторинг</button>
+    
+    <div class="form-group">
+      <label for="backlightSlider">Яркость подсветки: <span id="backlightValue">255</span></label>
+      <input type="range" id="backlightSlider" min="0" max="255" value="255" step="1" style="width:100%;">
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    // Функция конвертации 16-битного цвета в RGB
+    function convert16bitToRGB(hexStr) {
+      const num = parseInt(hexStr, 16);
+      const r5 = (num >> 11) & 0x1F;
+      const g6 = (num >> 5) & 0x3F;
+      const b5 = num & 0x1F;
+      const r = Math.round(r5 * 255 / 31);
+      const g = Math.round(g6 * 255 / 63);
+      const b = Math.round(b5 * 255 / 31);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Генерация цветовых кнопок
+    function initColorButtons() {
+      const colorSelect = document.getElementById('color');
+      const container = document.getElementById('color-buttons-container');
+      container.innerHTML = '';
+      
+      // Карта коротких названий для отображения
+      const shortNames = {
+        'Белый': 'Белый',
+        'Чёрный': 'Чёрный',
+        'Красный': 'Кр.',
+        'Зелёный': 'Зел.',
+        'Синий': 'Син.',
+        'Жёлтый': 'Жёлт.',
+        'Розовый': 'Роз.',
+        'Голубой': 'Гол.',
+        'Мятный': 'Мят.',
+        'Малиновый': 'Мал.',
+        'Оранжевый': 'Оранж.',
+        'Светло-зелёный': 'Св-зел.',
+        'Фиолетовый': 'Фиол.',
+        'Тёмно-синий': 'Тм-син.',
+        'Коричневый': 'Корич.',
+        'Серый': 'Сер.',
+        'Тёмно-серый': 'Тм-сер.',
+        'Коричневый тёмный': 'Тм-кор.',
+        'Светло-розовый': 'Св-роз.',
+        'Бирюзовый': 'Бир.',
+        'Красный яркий': 'Яр-кр.',
+        'Жёлтый яркий': 'Яр-жёлт.',
+        'Синий яркий': 'Яр-син.',
+        'Зелёный яркий': 'Яр-зел.'
+      };
+
+      // Создание кнопок для каждого цвета
+      for (let i = 0; i < colorSelect.options.length; i++) {
+        const option = colorSelect.options[i];
+        const colorValue = option.value;
+        const colorName = option.text;
+        const rgbColor = convert16bitToRGB(colorValue);
+        
+        const colorGroup = document.createElement('div');
+        colorGroup.className = 'color-group';
+        
+        const btn = document.createElement('button');
+        btn.className = 'color-button';
+        btn.value = colorValue;
+        btn.title = colorName;
+        btn.style.backgroundColor = rgbColor;
+        
+        // Короткое название для подписи
+        const shortName = shortNames[colorName] || colorName.substring(0, 4);
+        const label = document.createElement('div');
+        label.className = 'color-label';
+        label.textContent = shortName;
+        
+        // Обработчик выбора цвета
+        btn.addEventListener('click', function() {
+          colorSelect.value = this.value;
+          document.querySelectorAll('.color-button').forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+        });
+        
+        colorGroup.appendChild(btn);
+        colorGroup.appendChild(label);
+        container.appendChild(colorGroup);
+        
+        // Активация первого цвета по умолчанию
+        if (i === 0) {
+          btn.classList.add('active');
+        }
+      }
+    }
+
+    // Инициализация после загрузки DOM
+    document.addEventListener('DOMContentLoaded', initColorButtons);
+
+    const canvas = document.getElementById('preview');
+    const ctx = canvas.getContext('2d');
+    const coordsDiv = document.getElementById('coords');
+    const statusDiv = document.getElementById('status');
+
+    let point1 = null;
+    let point2 = null;
+    let isCircle = false;
+    let slideshowRunning = false;
+    let sensorRunning = false;
+
+    function toggleSlideshow() {
+      const url = document.getElementById('slideshowUrl').value.trim();
+      if (!url) { setStatus("Введите URL", true); return; }
+
+      slideshowRunning = !slideshowRunning;
+      const btn = document.getElementById('slideshowBtn');
+      btn.textContent = slideshowRunning ? "Остановить слайдшоу" : "Запустить слайдшоу";
+      btn.style.background = slideshowRunning ? "#d32f2f" : "#1976d2";
+
+      fetch('/slideshow', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({active: slideshowRunning, url})
+      }).then(() => {
+        setStatus(slideshowRunning ? "Слайдшоу запущено" : "Слайдшоу остановлено");
+      }).catch(() => setStatus("Ошибка", true));
+    }
+
+    function toggleSensor() {
+
+      sensorRunning = !sensorRunning;
+      const btn = document.getElementById('sensorBtn');
+      btn.textContent = sensorRunning ? "Остановить мониторинг" : "Запустить мониторинг";
+      btn.style.background = sensorRunning ? "#d32f2f" : "#1976d2";
+
+      fetch('/sensor', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({active: sensorRunning})
+      }).then(() => {
+        setStatus(sensorRunning ? "Монитор CO2 запущено" : "Монитор CO2 остановлено");
+      }).catch(() => setStatus("Ошибка", true));
+    }
+
+    function clearCanvas() {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, 240, 320);
+      point1 = point2 = null;
+      updateCoords();
+    }
+    clearCanvas();
+
+    function updateCoords() {
+      const p1 = point1 ? `(${point1.x}, ${point1.y})` : '?';
+      const p2 = point2 ? (isCircle ? `R: ${point2.r}` : `(${point2.x}, ${point2.y})`) : '?';
+      coordsDiv.textContent = `X1: ${p1} → X2: ${p2}`;
+    }
+
+    function setStatus(msg, isError = false) {
+      statusDiv.textContent = msg;
+      statusDiv.style.color = isError ? '#d00' : '#080';
+      setTimeout(() => statusDiv.textContent = '', 2000);
+    }
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = Math.round((e.clientX - rect.left) * scaleX);
+      const y = Math.round((e.clientY - rect.top) * scaleY);
+
+      const shape = document.getElementById('shape').value;
+      isCircle = shape.includes('circle');
+      isFillRectangle = shape.includes('fillrect');
+      isRectangle = shape.includes('rect');
+
+      if (!point1) {
+        point1 = {x, y};
+        drawPoint(x, y, '#00FF00');
+      } else if (!point2) {
+        if (isCircle) {
+          const r = Math.round(Math.hypot(x - point1.x, y - point1.y));
+          point2 = {r};
+          drawCircle(point1.x, point1.y, r, '#FFFF00');
+        } else if (isFillRectangle) {
+          point2 = {x, y};
+          drawPoint(x, y, '#FFFF00');
+          drawFillRectangle(point1.x, point1.y, x, y, '#FFFF00');
+        } else if  (isRectangle) {
+          point2 = {x, y};
+          drawPoint(x, y, '#FFFF00');
+          drawRectangle(point1.x, point1.y, x, y, '#FFFF00');
+        } else {
+          point2 = {x, y};
+          drawPoint(x, y, '#FFFF00');
+          drawLine(point1.x, point1.y, x, y, '#FFFF00');
+        }
+      } else {
+        //clearCanvas();
+        point1 = point2 = null;
+        point1 = {x, y};
+        drawPoint(x, y, '#00FF00');
+      }
+      updateCoords();
+    });
+
+    function drawPoint(x, y, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    function drawLine(x1, y1, x2, y2, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    function drawRectangle(x1, y1, x2, y2, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.rect(x1, y1, x2-x1, y2-y1); // Создаем путь для прямоугольника
+      ctx.stroke();
+    }
+
+    function drawFillRectangle(x1, y1, x2, y2, color) {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.fillStyle = color; // Цвет заливки
+      ctx.rect(x1, y1, x2-x1, y2-y1); // Создаем путь для прямоугольника
+      ctx.fill(); // Заливаем путь
+      ctx.stroke();
+    }
+
+    function drawCircle(cx, cy, r, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    function draw() {
+      if (!point1 || !point2) {
+        setStatus("Выберите две точки", true);
+        return;
+      }
+
+      const shape = document.getElementById('shape').value;
+      const color = parseInt(document.getElementById('color').value);
+
+      const data = {
+        shape,
+        x1: point1.x,
+        y1: point1.y,
+        x2: isCircle ? point2.r : point2.x,
+        y2: isCircle ? 0 : point2.y,
+        color
+      };
+
+      fetch('/draw', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+      }).then(r => r.text()).then(() => {
+        setStatus("Нарисовано!");
+      }).catch(() => setStatus("Ошибка", true));
+    }
+
+    function clearScreen() {
+      const color = parseInt(document.getElementById('color').value);
+      fetch('/clear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({color})
+      }).then(() => {
+        clearCanvas();
+        setStatus("Экран очищен");
+      }).catch(() => setStatus("Ошибка", true));
+    }
+
+    function drawStars() {
+      const count =  "150";
+      if (!count || isNaN(count)) return;
+      const num = Math.min(800, Math.max(50, parseInt(count)));
+
+      fetch('/stars', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({count: num})
+      }).then(() => {
+        setStatus("Звёзды нарисованы!");
+      }).catch(() => setStatus("Ошибка", true));
+    }
+    
+    document.getElementById('shape').onchange = () => {
+      clearCanvas();
+    };
+
+    const backlightSlider = document.getElementById('backlightSlider');
+    const backlightValue  = document.getElementById('backlightValue');
+
+    // Обновляем отображаемое значение при перемещении ползунка
+    backlightSlider.addEventListener('input', function() {
+      backlightValue.textContent = this.value;
+    });
+
+    // Отправляем новое значение на ESP32 при отпускании ползунка (чтобы не спамить запросами)
+    backlightSlider.addEventListener('change', function() {
+      const level = parseInt(this.value);
+
+      fetch('/backlight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level })
+      })
+      .then(r => r.text())
+      .then(() => setStatus(`Яркость: ${level}`))
+      .catch(() => setStatus('Ошибка подсветки', true));
+    });
+
+    // При загрузке страницы сразу синхронизируем ползунок с текущим значением (255)
+    backlightSlider.value = 255;
+    backlightValue.textContent = 255;
+
+    window.onload = () => {
+      const btn = document.getElementById('slideshowBtn');
+      btn.style.background = "#1976d2";
+    };
+  </script>
+</body>
+</html>
