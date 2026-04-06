@@ -27,29 +27,29 @@
 1. Установите зависимости:
    ```bash
    pip install fastapi uvicorn pillow
+
 Укажите путь к папке с картинками в image_server.py (переменная IMG_DIR).
 
 Запустите сервер через image_server.cmd или напрямую:
 
-Bash
-python image_server.py
-3. Обновление интерфейса
+   ```bash
+   python image_server.py
+
+### 3. Обновление интерфейса
 Если вы изменили index_html.html, обновите заголовочный файл:
 
-Bash
-python convert_to_gz.py index_html.html index_html_gz.h
-🔌 Схема подключения
+   ```bash
+   python convert_to_gz.py index_html.html index_html_gz.h
+
+## 🔌 Схема подключения
 Дисплей: SPI (Standard ESP32 pins).
 
 Подсветка (Backlight): Управляемый ШИМ пин (настраивается в коде).
 
 Датчик MQ135: Аналоговый вход.
 
-🛠 Технологический стек
-C++ (Arduino) — логика микроконтроллера.
-
-Python (FastAPI) — сервер обработки изображений.
-
-JavaScript/HTML/CSS — клиентский интерфейс.
-
-GZIP — компрессия данных.
+## 🛠 Технологический стек
+- C++ (Arduino) — логика микроконтроллера.
+- Python (FastAPI) — сервер обработки изображений.
+- JavaScript/HTML/CSS — клиентский интерфейс.
+- GZIP — компрессия данных.
